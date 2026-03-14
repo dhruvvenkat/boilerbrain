@@ -1,0 +1,10 @@
+{
+  "type": "module",
+  "scripts": {
+    "spec": "node scripts/generateSpec.ts",
+    "test": "node --test src/stages/generateSpec.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0"
+  }
+}

@@ -4,7 +4,7 @@ import { Command } from "commander";
 import {
   type PipelineRunResult,
   runPipeline,
-} from "../src/pipeline/runPipeline";
+} from "../src/pipeline/runPipeline.ts";
 
 function formatStageResults(result: PipelineRunResult): string {
   return result.stages
