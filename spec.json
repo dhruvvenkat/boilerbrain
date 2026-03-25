@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "sourcePrompt": "build a note-taking app for my classes",
+  "projectName": "note-taking-api",
+  "summary": "Backend REST API for managing Note-taking records, generated with a Node.js and TypeScript starter stack.",
+  "projectType": "backend-api",
+  "stack": {
+    "runtime": "node",
+    "language": "typescript",
+    "apiStyle": "rest",
+    "testFramework": "jest"
+  },
+  "requirements": {
+    "functional": [
+      "The project should expose a REST API built with Node.js and TypeScript.",
+      "The generated project should include starter Jest tests.",
+      "The API should provide starter endpoints for note-taking."
+    ],
+    "nonFunctional": [
+      "The starter project should favor a clear, modular structure.",
+      "The generated output should be lightweight and easy to extend."
+    ]
+  },
+  "domain": {
+    "primaryResource": "note-taking",
+    "authenticationRequired": false
+  },
+  "architecture": {
+    "style": "layered-rest-api",
+    "serverFramework": "node:http",
+    "moduleLayout": "routes-services-types",
+    "routePattern": "health-and-resource-crud",
+    "testingScope": "service-and-http",
+    "persistenceStrategy": "defer-storage-choice"
+  },
+  "assumptions": [
+    "This MVP targets a backend REST API only.",
+    "The default stack is Node.js, TypeScript, and Jest.",
+    "Architecture defaults to a layered REST layout with native Node.js HTTP primitives."
+  ],
+  "openQuestions": [
+    "Which data persistence approach should the generated project assume?",
+    "Are there any required endpoints beyond the default REST starter routes?",
+    "Does the API need authentication or can it be public?"
+  ]
+}

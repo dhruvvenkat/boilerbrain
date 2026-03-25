@@ -77,4 +77,4 @@ MVP should not include:
  - Frontend generation
 
 ## Architecture Overview
-CLI --> Pipeline Controller --> LLM Client --> Project Generation (spec module, architecture module, code generation) --> Project Building (editing directly within the repo) --> Test Generation and Execution --> Validation Checklist and Summary of Changes 
+CLI --> Pipeline Controller --> LLM Client --> Project Generation (spec module, architecture module, code generation) --> Project Building (editing directly within the repo) --> Test Generation and Execution --> Validation Checklist and Summary of Changes	 
