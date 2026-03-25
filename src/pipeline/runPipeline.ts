@@ -1,5 +1,10 @@
 import { generateArchitecture } from "../stages/generateArchitecture.ts";
 import { generateSpec } from "../stages/generateSpec.ts";
+import { generateStarterCode } from "../stages/generateStarterCode.ts";
+import { generateStarterTests } from "../stages/generateTests.ts";
+import { runGeneratedTests } from "../stages/runGeneratedTests.ts";
+import { scaffoldProject } from "../stages/scaffoldProject.ts";
+import { generateValidationChecklist } from "../stages/validationChecklist.ts";
 
 export type PipelineStageKey =
   | "parsePrompt"
@@ -8,6 +13,7 @@ export type PipelineStageKey =
   | "scaffoldProject"
   | "generateStarterCode"
   | "generateStarterTests"
+  | "runGeneratedTests"
   | "validationChecklist";
 
 export interface PipelineStageResult {
@@ -33,6 +39,110 @@ function validatePrompt(prompt: string): string {
   }
 
   return normalizedPrompt;
+}
+
+function formatScaffoldOutput(result: Awaited<ReturnType<typeof scaffoldProject>>): string {
+  const lines = [
+    `Scaffolded project at ${result.projectRoot}`,
+    `Created ${result.directoriesCreated.length} directories and ${result.filesCreated.length} files.`,
+    `Skipped ${result.filesSkipped.length} existing files.`,
+    `Stack: ${result.stack.projectType}, ${result.stack.runtime}, ${result.stack.language}, ${result.stack.apiStyle}, ${result.stack.testFramework}, ${result.stack.serverFramework}, ${result.stack.moduleLayout}`,
+  ];
+
+  if (result.directoriesCreated.length > 0) {
+    lines.push(`Directories: ${result.directoriesCreated.join(", ")}`);
+  }
+
+  if (result.filesCreated.length > 0) {
+    lines.push(`Files: ${result.filesCreated.join(", ")}`);
+  }
+
+  if (result.filesSkipped.length > 0) {
+    lines.push(`Skipped existing files: ${result.filesSkipped.join(", ")}`);
+  }
+
+  return lines.join("\n");
+}
+
+function formatStarterCodeOutput(
+  result: Awaited<ReturnType<typeof generateStarterCode>>,
+): string {
+  const lines = [
+    `Generated starter code at ${result.projectRoot}`,
+    `Wrote ${result.filesWritten.length} files.`,
+    `Created ${result.projectFilesCreated.length} project-level files.`,
+    `Skipped ${result.filesSkipped.length} existing files.`,
+    `Stack: ${result.stack.projectType}, ${result.stack.runtime}, ${result.stack.language}, ${result.stack.apiStyle}, ${result.stack.testFramework}, ${result.stack.serverFramework}, ${result.stack.moduleLayout}`,
+  ];
+
+  if (result.projectFilesCreated.length > 0) {
+    lines.push(`Project files: ${result.projectFilesCreated.join(", ")}`);
+  }
+
+  if (result.filesWritten.length > 0) {
+    lines.push(`Files: ${result.filesWritten.join(", ")}`);
+  }
+
+  if (result.filesSkipped.length > 0) {
+    lines.push(`Skipped existing files: ${result.filesSkipped.join(", ")}`);
+  }
+
+  return lines.join("\n");
+}
+
+function formatStarterTestsOutput(
+  result: Awaited<ReturnType<typeof generateStarterTests>>,
+): string {
+  const lines = [
+    `Generated starter tests at ${result.projectRoot}`,
+    `Wrote ${result.filesWritten.length} test files.`,
+    `Skipped ${result.filesSkipped.length} existing files.`,
+    `Stack: ${result.stack.projectType}, ${result.stack.runtime}, ${result.stack.language}, ${result.stack.apiStyle}, ${result.stack.testFramework}, ${result.stack.serverFramework}, ${result.stack.moduleLayout}`,
+  ];
+
+  if (result.testFilesGenerated.length > 0) {
+    lines.push(`Tests: ${result.testFilesGenerated.join(", ")}`);
+  }
+
+  if (result.filesSkipped.length > 0) {
+    lines.push(`Skipped existing files: ${result.filesSkipped.join(", ")}`);
+  }
+
+  return lines.join("\n");
+}
+
+function formatRunGeneratedTestsOutput(
+  result: Awaited<ReturnType<typeof runGeneratedTests>>,
+): string {
+  const lines = [
+    `Generated test execution status: ${result.status}`,
+    `Command: ${result.command}`,
+    `Stack: ${result.stack.projectType}, ${result.stack.runtime}, ${result.stack.language}, ${result.stack.apiStyle}, ${result.stack.testFramework}, ${result.stack.serverFramework}, ${result.stack.moduleLayout}`,
+  ];
+
+  if (result.exitCode !== null) {
+    lines.push(`Exit code: ${result.exitCode}`);
+  }
+
+  if (result.reason) {
+    lines.push(`Reason: ${result.reason}`);
+  }
+
+  if (result.stdout.trim()) {
+    lines.push(`Stdout: ${result.stdout.trim()}`);
+  }
+
+  if (result.stderr.trim()) {
+    lines.push(`Stderr: ${result.stderr.trim()}`);
+  }
+
+  return lines.join("\n");
+}
+
+function formatValidationChecklistOutput(
+  result: Awaited<ReturnType<typeof generateValidationChecklist>>,
+): string {
+  return `Created validation checklist at ${result.outputPath}\n${result.checklist}`;
 }
 
 export async function runPipeline(
@@ -66,6 +176,50 @@ export async function runPipeline(
     outputDir: options.outputDir,
   });
 
+  const scaffoldResult = await scaffoldProject(
+    specResult.spec,
+    architectureResult.architecture,
+    {
+      outputDir: options.outputDir,
+    },
+  );
+
+  const starterCodeResult = await generateStarterCode(
+    specResult.spec,
+    architectureResult.architecture,
+    {
+      outputDir: options.outputDir,
+    },
+  );
+
+  const starterTestsResult = await generateStarterTests(
+    specResult.spec,
+    architectureResult.architecture,
+    {
+      outputDir: options.outputDir,
+    },
+  );
+
+  const runGeneratedTestsResult = await runGeneratedTests(
+    specResult.spec,
+    architectureResult.architecture,
+    {
+      outputDir: options.outputDir,
+    },
+  );
+
+  const validationChecklistResult = await generateValidationChecklist(
+    specResult.spec,
+    architectureResult.architecture,
+    scaffoldResult,
+    starterCodeResult,
+    starterTestsResult,
+    runGeneratedTestsResult,
+    {
+      outputDir: options.outputDir,
+    },
+  );
+
   stages.push(
     {
       key: "generateArchitecture",
@@ -79,26 +233,27 @@ export async function runPipeline(
     {
       key: "scaffoldProject",
       label: "Scaffold Project",
-      output:
-        "Placeholder scaffold step completed. No files were generated in this stub.",
+      output: formatScaffoldOutput(scaffoldResult),
     },
     {
       key: "generateStarterCode",
       label: "Generate Starter Code",
-      output:
-        "Placeholder starter code step completed. No code was generated in this stub.",
+      output: formatStarterCodeOutput(starterCodeResult),
     },
     {
       key: "generateStarterTests",
       label: "Generate Starter Tests",
-      output:
-        "Placeholder test generation step completed. No tests were generated in this stub.",
+      output: formatStarterTestsOutput(starterTestsResult),
+    },
+    {
+      key: "runGeneratedTests",
+      label: "Run Generated Tests",
+      output: formatRunGeneratedTestsOutput(runGeneratedTestsResult),
     },
     {
       key: "validationChecklist",
       label: "Validation Checklist",
-      output:
-        "Placeholder checklist: review prompt, spec, architecture, scaffold, code, and tests.",
+      output: formatValidationChecklistOutput(validationChecklistResult),
     },
   );
 
