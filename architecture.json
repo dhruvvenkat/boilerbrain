@@ -1,0 +1,205 @@
+{
+  "version": 1,
+  "sourcePrompt": "build a note-taking app for my classes",
+  "projectName": "note-taking-api",
+  "summary": "Layered REST API architecture for note-taking using native Node.js HTTP modules, TypeScript, route/service/type separation, and Jest with service and HTTP coverage, kept public by default.",
+  "architectureStyle": "layered-rest-api",
+  "stack": {
+    "runtime": "node",
+    "language": "typescript",
+    "apiStyle": "rest",
+    "testFramework": "jest",
+    "serverFramework": "node:http"
+  },
+  "scaffoldPlan": {
+    "directories": [
+      {
+        "path": "src",
+        "purpose": "Application source files and runtime entrypoints."
+      },
+      {
+        "path": "tests",
+        "purpose": "Generated test coverage for the starter project."
+      },
+      {
+        "path": "src/routes",
+        "purpose": "HTTP route handlers for health and resource endpoints."
+      },
+      {
+        "path": "src/services",
+        "purpose": "Business logic kept separate from request parsing."
+      },
+      {
+        "path": "src/types",
+        "purpose": "TypeScript interfaces for request and domain shapes."
+      }
+    ],
+    "files": [
+      {
+        "path": "src/app.ts",
+        "purpose": "Create the top-level request handler and register routes."
+      },
+      {
+        "path": "src/server.ts",
+        "purpose": "Start the HTTP server and expose a clean process entrypoint."
+      },
+      {
+        "path": "src/services/noteTakingService.ts",
+        "purpose": "Resource-specific business logic and placeholder data handling."
+      },
+      {
+        "path": "src/types/note-taking.ts",
+        "purpose": "Shared request and entity types for the primary resource."
+      },
+      {
+        "path": "src/routes/health.ts",
+        "purpose": "Health endpoint used for smoke tests and validation."
+      },
+      {
+        "path": "src/routes/note-takings.ts",
+        "purpose": "Resource route definitions for the generated CRUD starter API."
+      },
+      {
+        "path": "tests/noteTaking.test.ts",
+        "purpose": "Starter Jest tests for the resource service and routes."
+      },
+      {
+        "path": "tests/health.test.ts",
+        "purpose": "Validation test that confirms the health endpoint is wired up."
+      }
+    ]
+  },
+  "moduleBoundaries": {
+    "app": "Compose the HTTP server, route registration, and shared request flow.",
+    "routes": "Translate HTTP requests into service calls and serialize HTTP responses.",
+    "services": "Own business rules and placeholder data operations without HTTP concerns.",
+    "tests": "Validate the generated endpoints and starter business logic."
+  },
+  "apiPlan": {
+    "healthEndpoint": {
+      "method": "GET",
+      "path": "/health",
+      "purpose": "Report service health for smoke tests and validation.",
+      "protected": false
+    },
+    "resource": {
+      "name": "note-taking",
+      "collectionPath": "/note-takings",
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/note-takings",
+          "purpose": "List note-taking records.",
+          "protected": false
+        },
+        {
+          "method": "GET",
+          "path": "/note-takings/:id",
+          "purpose": "Fetch a single note-taking record.",
+          "protected": false
+        },
+        {
+          "method": "POST",
+          "path": "/note-takings",
+          "purpose": "Create a new note-taking record.",
+          "protected": false
+        },
+        {
+          "method": "PUT",
+          "path": "/note-takings/:id",
+          "purpose": "Update an existing note-taking record.",
+          "protected": false
+        },
+        {
+          "method": "DELETE",
+          "path": "/note-takings/:id",
+          "purpose": "Delete an existing note-taking record.",
+          "protected": false
+        }
+      ]
+    }
+  },
+  "crossCuttingConcerns": {
+    "authentication": {
+      "required": false,
+      "approach": "No authentication middleware is scaffolded by default; the API remains public unless later requirements change."
+    },
+    "errorHandling": "Return consistent JSON error payloads from route modules and keep service failures explicit for easier Jest assertions.",
+    "configuration": "Keep runtime configuration minimal and environment-driven so the starter project stays easy to run locally.",
+    "persistence": "Leave persistence as a later decision and keep generated services independent from any database library."
+  },
+  "majorDecisions": [
+    {
+      "key": "runtime",
+      "title": "Runtime And Language",
+      "choice": "Use Node.js with TypeScript for the generated backend starter.",
+      "rationale": "The spec carries the chosen runtime and language, and the PRD scopes the MVP to a Node.js/TypeScript backend starter.",
+      "alternatives": [
+        "Use plain JavaScript for faster initial output.",
+        "Target another runtime such as Bun or Deno."
+      ]
+    },
+    {
+      "key": "http_server",
+      "title": "HTTP Server Choice",
+      "choice": "Use native Node.js HTTP modules behind route modules instead of introducing a larger framework at this stage.",
+      "rationale": "The server framework is now chosen in the spec, and this default keeps the generated starter lightweight while still supporting REST endpoints.",
+      "alternatives": [
+        "Use Express for a more familiar middleware ecosystem.",
+        "Use Fastify for higher performance and plugin support."
+      ]
+    },
+    {
+      "key": "module_layout",
+      "title": "Module Layout",
+      "choice": "Adopt route/service/type separation, with optional middleware when authentication is required.",
+      "rationale": "The module layout comes from the spec and matches the PRD requirement for a clear modular scaffold.",
+      "alternatives": [
+        "Keep everything in a single entrypoint for maximum simplicity.",
+        "Introduce controllers and repositories immediately."
+      ]
+    },
+    {
+      "key": "persistence",
+      "title": "Persistence Boundary",
+      "choice": "Leave persistence as a later decision and keep generated services independent from any database library.",
+      "rationale": "The persistence strategy comes from the spec, and database integration is explicitly out of scope for the MVP.",
+      "alternatives": [
+        "Add a repository layer and in-memory implementation immediately.",
+        "Commit to a database and ORM from the start."
+      ]
+    },
+    {
+      "key": "testing",
+      "title": "Testing Strategy",
+      "choice": "Generate Jest tests for service and HTTP coverage.",
+      "rationale": "The test framework and test scope now live in the spec, and the PRD requires starter test generation for the produced backend.",
+      "alternatives": [
+        "Use `node:test` to avoid a testing dependency.",
+        "Limit tests to service-only unit coverage."
+      ]
+    },
+    {
+      "key": "authentication",
+      "title": "Authentication Boundary",
+      "choice": "Keep the MVP starter public by default and avoid scaffolding unused auth middleware.",
+      "rationale": "The prompt does not require authentication, so the smaller architecture keeps the scaffold focused on the core resource API.",
+      "alternatives": [
+        "Always scaffold auth middleware for future use.",
+        "Add a full auth subsystem preemptively."
+      ]
+    }
+  ],
+  "implementationNotes": [
+    "The scaffold stage should create the planned directories and starter files exactly as listed in `scaffoldPlan`.",
+    "The starter code stage should populate `src/app.ts` and `src/server.ts` first, then add the resource route and service modules.",
+    "Resource endpoints should follow the `health-and-resource-crud` pattern and use `/note-takings` as the default collection path.",
+    "Generated Jest tests should cover the service-and-http scope from the spec.",
+    "Authentication should remain an open extension point rather than introducing auth-specific files later in the pipeline."
+  ],
+  "openQuestions": [
+    "Which data persistence approach should the generated project assume?",
+    "Are there any required endpoints beyond the default REST starter routes?",
+    "Does the API need authentication or can it be public?"
+  ]
+}

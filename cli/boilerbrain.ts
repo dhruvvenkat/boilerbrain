@@ -1,12 +1,90 @@
 #!/usr/bin/env node
 
-import { Command } from "commander";
+import { cwd } from "node:process";
+
 import {
   type PipelineRunResult,
   runPipeline,
 } from "../src/pipeline/runPipeline.ts";
 
-function formatStageResults(result: PipelineRunResult): string {
+export interface ParsedCliArgs {
+  prompt: string;
+  outputDir?: string;
+  showHelp: boolean;
+}
+
+const USAGE = `Usage:
+  npm run pipeline -- "<project prompt>"
+  npm run pipeline -- --out ./generated "<project prompt>"
+
+Options:
+  -o, --out, --output-dir <path>  Directory to write the generated project into
+  -h, --help                      Show this help message
+`;
+
+function isOutputFlag(value: string): boolean {
+  return value === "-o" || value === "--out" || value === "--output-dir";
+}
+
+function readInlineOutputDir(value: string): string | undefined {
+  if (value.startsWith("--out=")) {
+    return value.slice("--out=".length);
+  }
+
+  if (value.startsWith("--output-dir=")) {
+    return value.slice("--output-dir=".length);
+  }
+
+  return undefined;
+}
+
+export function parseCliArgs(argv: string[]): ParsedCliArgs {
+  const promptParts: string[] = [];
+  let outputDir: string | undefined;
+  let showHelp = false;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+
+    if (argument === "-h" || argument === "--help") {
+      showHelp = true;
+      continue;
+    }
+
+    if (isOutputFlag(argument)) {
+      const nextValue = argv[index + 1];
+
+      if (!nextValue || nextValue.startsWith("-")) {
+        throw new Error(`Missing value for ${argument}.`);
+      }
+
+      outputDir = nextValue;
+      index += 1;
+      continue;
+    }
+
+    const inlineOutputDir = readInlineOutputDir(argument);
+
+    if (inlineOutputDir !== undefined) {
+      if (!inlineOutputDir.trim()) {
+        throw new Error("Missing value for --out.");
+      }
+
+      outputDir = inlineOutputDir;
+      continue;
+    }
+
+    promptParts.push(argument);
+  }
+
+  return {
+    prompt: promptParts.join(" ").trim(),
+    outputDir: outputDir?.trim(),
+    showHelp,
+  };
+}
+
+export function formatStageResults(result: PipelineRunResult): string {
   return result.stages
     .map((stage, index) => {
       return `[${index + 1}/${result.stages.length}] ${stage.label}\n${stage.output}`;
@@ -14,40 +92,54 @@ function formatStageResults(result: PipelineRunResult): string {
     .join("\n\n");
 }
 
+function printUsage(stream: Pick<typeof console, "log" | "error">, method: "log" | "error"): void {
+  stream[method](USAGE);
+}
+
 async function main(): Promise<void> {
-  const program = new Command();
+  let parsedArgs: ParsedCliArgs;
 
-  program
-    .name("boilerbrain")
-    .description(
-      "Generate backend starter boilerplate from a natural-language prompt.",
-    )
-    .argument("<prompt...>", "Natural-language project prompt")
-    .action(async (promptParts: string[]) => {
-      const prompt = promptParts.join(" ").trim();
+  try {
+    parsedArgs = parseCliArgs(process.argv.slice(2));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid CLI arguments.";
+    console.error(message);
+    console.error("");
+    printUsage(console, "error");
+    process.exitCode = 1;
+    return;
+  }
 
-      if (!prompt) {
-        console.error("A natural-language prompt is required.");
-        process.exitCode = 1;
-        return;
-      }
+  if (parsedArgs.showHelp) {
+    printUsage(console, "log");
+    return;
+  }
 
-      try {
-        const result = await runPipeline(prompt);
+  if (!parsedArgs.prompt) {
+    console.error("A natural-language prompt is required.");
+    console.error("");
+    printUsage(console, "error");
+    process.exitCode = 1;
+    return;
+  }
 
-        console.log(`Prompt: ${result.prompt}`);
-        console.log("");
-        console.log(formatStageResults(result));
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Pipeline failed.";
+  const outputDir = parsedArgs.outputDir ?? cwd();
 
-        console.error(message);
-        process.exitCode = 1;
-      }
+  try {
+    const result = await runPipeline(parsedArgs.prompt, {
+      outputDir,
     });
 
-  await program.parseAsync(process.argv);
+    console.log(`Prompt: ${result.prompt}`);
+    console.log(`Output directory: ${outputDir}`);
+    console.log("");
+    console.log(formatStageResults(result));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Pipeline failed.";
+
+    console.error(message);
+    process.exitCode = 1;
+  }
 }
 
 void main();

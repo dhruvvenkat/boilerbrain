@@ -2,7 +2,8 @@
   "type": "module",
   "scripts": {
     "spec": "node scripts/generateSpec.ts",
-    "test": "node --test src/stages/generateSpec.test.ts src/stages/generateArchitecture.test.ts src/stages/scaffoldProject.test.ts src/stages/generateStarterCode.test.ts src/stages/generateTests.test.ts src/stages/runGeneratedTests.test.ts src/stages/validationChecklist.test.ts src/pipeline/runPipeline.test.ts src/ai/llmClient.test.ts"
+    "pipeline": "node cli/boilerbrain.ts",
+    "test": "node --test cli/boilerbrain.test.ts src/stages/generateSpec.test.ts src/stages/generateArchitecture.test.ts src/stages/scaffoldProject.test.ts src/stages/generateStarterCode.test.ts src/stages/generateTests.test.ts src/stages/runGeneratedTests.test.ts src/stages/validationChecklist.test.ts src/pipeline/runPipeline.test.ts src/ai/llmClient.test.ts"
   },
   "devDependencies": {
     "@types/node": "^25.5.0"
