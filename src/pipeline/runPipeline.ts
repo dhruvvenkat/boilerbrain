@@ -1,3 +1,4 @@
+import { generateArchitecture } from "../stages/generateArchitecture.ts";
 import { generateSpec } from "../stages/generateSpec.ts";
 
 export type PipelineStageKey =
@@ -61,11 +62,19 @@ export async function runPipeline(
     )}`,
   });
 
+  const architectureResult = await generateArchitecture(specResult.spec, {
+    outputDir: options.outputDir,
+  });
+
   stages.push(
     {
       key: "generateArchitecture",
       label: "Generate Architecture",
-      output: `Placeholder architecture plan created for "${validatedPrompt}".`,
+      output: `Created architecture at ${architectureResult.outputPath}\n${JSON.stringify(
+        architectureResult.architecture,
+        null,
+        2,
+      )}`,
     },
     {
       key: "scaffoldProject",

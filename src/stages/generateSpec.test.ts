@@ -19,6 +19,12 @@ test("buildProjectSpec derives a PRD-aligned backend API spec", () => {
   assert.equal(spec.stack.testFramework, "jest");
   assert.equal(spec.domain.primaryResource, "todo");
   assert.equal(spec.domain.authenticationRequired, true);
+  assert.equal(spec.architecture.style, "layered-rest-api");
+  assert.equal(spec.architecture.serverFramework, "node:http");
+  assert.equal(spec.architecture.moduleLayout, "routes-services-types");
+  assert.equal(spec.architecture.routePattern, "health-and-resource-crud");
+  assert.equal(spec.architecture.testingScope, "service-and-http");
+  assert.equal(spec.architecture.persistenceStrategy, "defer-storage-choice");
   assert.match(spec.summary, /authentication/i);
 });
 
@@ -31,6 +37,7 @@ test("generateSpec writes spec.json to the requested output directory", async ()
   assert.equal(result.outputPath, join(outputDir, "spec.json"));
   assert.equal(writtenSpec.projectName, "calendar-api");
   assert.equal(writtenSpec.sourcePrompt, "build a calendar API");
+  assert.equal(writtenSpec.architecture.serverFramework, "node:http");
 });
 
 test("generateSpec defaults to writing spec.json inside the src directory", async () => {

@@ -25,9 +25,18 @@
     "primaryResource": "calorie tracker",
     "authenticationRequired": false
   },
+  "architecture": {
+    "style": "layered-rest-api",
+    "serverFramework": "node:http",
+    "moduleLayout": "routes-services-types",
+    "routePattern": "health-and-resource-crud",
+    "testingScope": "service-and-http",
+    "persistenceStrategy": "defer-storage-choice"
+  },
   "assumptions": [
     "This MVP targets a backend REST API only.",
-    "The default stack is Node.js, TypeScript, and Jest."
+    "The default stack is Node.js, TypeScript, and Jest.",
+    "Architecture defaults to a layered REST layout with native Node.js HTTP primitives."
   ],
   "openQuestions": [
     "Which data persistence approach should the generated project assume?",

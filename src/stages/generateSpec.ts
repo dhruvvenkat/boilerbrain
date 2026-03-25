@@ -21,6 +21,14 @@ export interface ProjectSpec {
     primaryResource: string | null;
     authenticationRequired: boolean;
   };
+  architecture: {
+    style: "layered-rest-api";
+    serverFramework: "node:http";
+    moduleLayout: "routes-services-types";
+    routePattern: "health-and-resource-crud";
+    testingScope: "service-and-http";
+    persistenceStrategy: "defer-storage-choice";
+  };
   assumptions: string[];
   openQuestions: string[];
 }
@@ -171,6 +179,7 @@ function buildAssumptions(primaryResource: string | null): string[] {
   const assumptions = [
     "This MVP targets a backend REST API only.",
     "The default stack is Node.js, TypeScript, and Jest.",
+    "Architecture defaults to a layered REST layout with native Node.js HTTP primitives.",
   ];
 
   if (!primaryResource) {
@@ -202,6 +211,17 @@ function buildOpenQuestions(
   }
 
   return openQuestions;
+}
+
+function buildArchitectureDefaults(): ProjectSpec["architecture"] {
+  return {
+    style: "layered-rest-api",
+    serverFramework: "node:http",
+    moduleLayout: "routes-services-types",
+    routePattern: "health-and-resource-crud",
+    testingScope: "service-and-http",
+    persistenceStrategy: "defer-storage-choice",
+  };
 }
 
 export function buildProjectSpec(prompt: string): ProjectSpec {
@@ -240,6 +260,7 @@ export function buildProjectSpec(prompt: string): ProjectSpec {
       primaryResource,
       authenticationRequired,
     },
+    architecture: buildArchitectureDefaults(),
     assumptions: buildAssumptions(primaryResource),
     openQuestions: buildOpenQuestions(primaryResource, authenticationRequired),
   };
