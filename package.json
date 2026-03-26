@@ -1,5 +1,9 @@
 {
+  "name": "boilerbrain",
   "type": "module",
+  "bin": {
+    "boilerbrain": "cli/boilerbrain.ts"
+  },
   "scripts": {
     "spec": "node scripts/generateSpec.ts",
     "pipeline": "node cli/boilerbrain.ts",

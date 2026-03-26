@@ -14,6 +14,10 @@ export interface ParsedCliArgs {
 }
 
 const USAGE = `Usage:
+  boilerbrain "<project prompt>"
+  boilerbrain --out ./generated "<project prompt>"
+
+Development:
   npm run pipeline -- "<project prompt>"
   npm run pipeline -- --out ./generated "<project prompt>"
 
