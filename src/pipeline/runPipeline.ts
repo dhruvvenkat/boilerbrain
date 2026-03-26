@@ -16,10 +16,23 @@ export type PipelineStageKey =
   | "runGeneratedTests"
   | "validationChecklist";
 
+export type PipelineStageStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed";
+
 export interface PipelineStageResult {
   key: PipelineStageKey;
   label: string;
   output: string;
+}
+
+export interface PipelineStageUpdate {
+  key: PipelineStageKey;
+  label: string;
+  status: PipelineStageStatus;
+  output?: string;
 }
 
 export interface PipelineRunResult {
@@ -29,6 +42,14 @@ export interface PipelineRunResult {
 
 export interface RunPipelineOptions {
   outputDir?: string;
+  onStageUpdate?: (update: PipelineStageUpdate) => void;
+}
+
+interface StageDescriptor<T> {
+  key: PipelineStageKey;
+  label: string;
+  format: (result: T) => string;
+  run: () => Promise<T> | T;
 }
 
 function validatePrompt(prompt: string): string {
@@ -39,6 +60,58 @@ function validatePrompt(prompt: string): string {
   }
 
   return normalizedPrompt;
+}
+
+function emitStageUpdate(
+  options: RunPipelineOptions,
+  update: PipelineStageUpdate,
+): void {
+  options.onStageUpdate?.(update);
+}
+
+async function executeStage<T>(
+  descriptor: StageDescriptor<T>,
+  stages: PipelineStageResult[],
+  options: RunPipelineOptions,
+): Promise<T> {
+  emitStageUpdate(options, {
+    key: descriptor.key,
+    label: descriptor.label,
+    status: "pending",
+  });
+  emitStageUpdate(options, {
+    key: descriptor.key,
+    label: descriptor.label,
+    status: "running",
+  });
+
+  try {
+    const result = await descriptor.run();
+    const output = descriptor.format(result);
+
+    stages.push({
+      key: descriptor.key,
+      label: descriptor.label,
+      output,
+    });
+
+    emitStageUpdate(options, {
+      key: descriptor.key,
+      label: descriptor.label,
+      status: "completed",
+      output,
+    });
+
+    return result;
+  } catch (error) {
+    emitStageUpdate(options, {
+      key: descriptor.key,
+      label: descriptor.label,
+      status: "failed",
+    });
+
+    throw error;
+  }
 }
 
 function formatScaffoldOutput(result: Awaited<ReturnType<typeof scaffoldProject>>): string {
@@ -150,111 +223,133 @@ export async function runPipeline(
   options: RunPipelineOptions = {},
 ): Promise<PipelineRunResult> {
   const validatedPrompt = validatePrompt(prompt);
-  const stages: PipelineStageResult[] = [
+  const stages: PipelineStageResult[] = [];
+
+  await executeStage(
     {
       key: "parsePrompt",
       label: "Parse Prompt",
-      output: `Accepted prompt: "${validatedPrompt}"`,
+      format: (result: string) => `Accepted prompt: "${result}"`,
+      run: () => validatedPrompt,
     },
-  ];
-
-  const specResult = await generateSpec(validatedPrompt, {
-    outputDir: options.outputDir,
-  });
-
-  stages.push({
-    key: "generateSpec",
-    label: "Generate Spec",
-    output: `Created spec at ${specResult.outputPath}\n${JSON.stringify(
-      specResult.spec,
-      null,
-      2,
-    )}`,
-  });
-
-  const architectureResult = await generateArchitecture(specResult.spec, {
-    outputDir: options.outputDir,
-  });
-
-  const scaffoldResult = await scaffoldProject(
-    specResult.spec,
-    architectureResult.architecture,
-    {
-      outputDir: options.outputDir,
-    },
+    stages,
+    options,
   );
 
-  const starterCodeResult = await generateStarterCode(
-    specResult.spec,
-    architectureResult.architecture,
+  const specResult = await executeStage(
     {
-      outputDir: options.outputDir,
+      key: "generateSpec",
+      label: "Generate Spec",
+      format: (result) =>
+        `Created spec at ${result.outputPath}\n${JSON.stringify(
+          result.spec,
+          null,
+          2,
+        )}`,
+      run: () =>
+        generateSpec(validatedPrompt, {
+          outputDir: options.outputDir,
+        }),
     },
+    stages,
+    options,
   );
 
-  const starterTestsResult = await generateStarterTests(
-    specResult.spec,
-    architectureResult.architecture,
-    {
-      outputDir: options.outputDir,
-    },
-  );
-
-  const runGeneratedTestsResult = await runGeneratedTests(
-    specResult.spec,
-    architectureResult.architecture,
-    {
-      outputDir: options.outputDir,
-    },
-  );
-
-  const validationChecklistResult = await generateValidationChecklist(
-    specResult.spec,
-    architectureResult.architecture,
-    scaffoldResult,
-    starterCodeResult,
-    starterTestsResult,
-    runGeneratedTestsResult,
-    {
-      outputDir: options.outputDir,
-    },
-  );
-
-  stages.push(
+  const architectureResult = await executeStage(
     {
       key: "generateArchitecture",
       label: "Generate Architecture",
-      output: `Created architecture at ${architectureResult.outputPath}\n${JSON.stringify(
-        architectureResult.architecture,
-        null,
-        2,
-      )}`,
+      format: (result) =>
+        `Created architecture at ${result.outputPath}\n${JSON.stringify(
+          result.architecture,
+          null,
+          2,
+        )}`,
+      run: () =>
+        generateArchitecture(specResult.spec, {
+          outputDir: options.outputDir,
+        }),
     },
+    stages,
+    options,
+  );
+
+  const scaffoldResult = await executeStage(
     {
       key: "scaffoldProject",
       label: "Scaffold Project",
-      output: formatScaffoldOutput(scaffoldResult),
+      format: formatScaffoldOutput,
+      run: () =>
+        scaffoldProject(specResult.spec, architectureResult.architecture, {
+          outputDir: options.outputDir,
+        }),
     },
+    stages,
+    options,
+  );
+
+  const starterCodeResult = await executeStage(
     {
       key: "generateStarterCode",
       label: "Generate Starter Code",
-      output: formatStarterCodeOutput(starterCodeResult),
+      format: formatStarterCodeOutput,
+      run: () =>
+        generateStarterCode(specResult.spec, architectureResult.architecture, {
+          outputDir: options.outputDir,
+        }),
     },
+    stages,
+    options,
+  );
+
+  const starterTestsResult = await executeStage(
     {
       key: "generateStarterTests",
       label: "Generate Starter Tests",
-      output: formatStarterTestsOutput(starterTestsResult),
+      format: formatStarterTestsOutput,
+      run: () =>
+        generateStarterTests(specResult.spec, architectureResult.architecture, {
+          outputDir: options.outputDir,
+        }),
     },
+    stages,
+    options,
+  );
+
+  const runGeneratedTestsResult = await executeStage(
     {
       key: "runGeneratedTests",
       label: "Run Generated Tests",
-      output: formatRunGeneratedTestsOutput(runGeneratedTestsResult),
+      format: formatRunGeneratedTestsOutput,
+      run: () =>
+        runGeneratedTests(specResult.spec, architectureResult.architecture, {
+          outputDir: options.outputDir,
+        }),
     },
+    stages,
+    options,
+  );
+
+  await executeStage(
     {
       key: "validationChecklist",
       label: "Validation Checklist",
-      output: formatValidationChecklistOutput(validationChecklistResult),
+      format: formatValidationChecklistOutput,
+      run: () =>
+        generateValidationChecklist(
+          specResult.spec,
+          architectureResult.architecture,
+          scaffoldResult,
+          starterCodeResult,
+          starterTestsResult,
+          runGeneratedTestsResult,
+          {
+            outputDir: options.outputDir,
+          },
+        ),
     },
+    stages,
+    options,
   );
 
   return {

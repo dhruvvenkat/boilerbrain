@@ -1,10 +1,19 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { runPipeline } from "./runPipeline.ts";
+import {
+  type PipelineStageUpdate,
+  runPipeline,
+} from "./runPipeline.ts";
+
+function collectStageSignatures(
+  updates: PipelineStageUpdate[],
+): Array<[string, string]> {
+  return updates.map((update) => [update.key, update.status]);
+}
 
 test("runPipeline writes the architecture, scaffold, starter code, generated tests, test-run status, and checklist to the requested directory", async () => {
   const outputDir = await mkdtemp(join(tmpdir(), "boilerbrain-pipeline-"));
@@ -75,4 +84,82 @@ test("runPipeline writes the architecture, scaffold, starter code, generated tes
   assert.match(generatedAuthTestFile, /POST \/auth\/login returns the dev token/);
   assert.equal(generatedPackageJson.name, "notes-api");
   assert.match(validationChecklistFile, /Run generated tests: Generated project dependencies are not installed/);
+});
+
+test("runPipeline emits ordered progress updates with completion output", async () => {
+  const outputDir = await mkdtemp(join(tmpdir(), "boilerbrain-pipeline-progress-"));
+  const updates: PipelineStageUpdate[] = [];
+
+  await runPipeline("build a notes API with authentication", {
+    outputDir,
+    onStageUpdate: (update) => {
+      updates.push(update);
+    },
+  });
+
+  assert.equal(updates.length, 24);
+  assert.deepEqual(collectStageSignatures(updates), [
+    ["parsePrompt", "pending"],
+    ["parsePrompt", "running"],
+    ["parsePrompt", "completed"],
+    ["generateSpec", "pending"],
+    ["generateSpec", "running"],
+    ["generateSpec", "completed"],
+    ["generateArchitecture", "pending"],
+    ["generateArchitecture", "running"],
+    ["generateArchitecture", "completed"],
+    ["scaffoldProject", "pending"],
+    ["scaffoldProject", "running"],
+    ["scaffoldProject", "completed"],
+    ["generateStarterCode", "pending"],
+    ["generateStarterCode", "running"],
+    ["generateStarterCode", "completed"],
+    ["generateStarterTests", "pending"],
+    ["generateStarterTests", "running"],
+    ["generateStarterTests", "completed"],
+    ["runGeneratedTests", "pending"],
+    ["runGeneratedTests", "running"],
+    ["runGeneratedTests", "completed"],
+    ["validationChecklist", "pending"],
+    ["validationChecklist", "running"],
+    ["validationChecklist", "completed"],
+  ]);
+  assert.equal(updates[2]?.output, 'Accepted prompt: "build a notes API with authentication"');
+  assert.match(updates[5]?.output ?? "", /Created spec at/);
+  assert.match(updates[8]?.output ?? "", /Created architecture at/);
+  assert.match(updates[11]?.output ?? "", /Scaffolded project at/);
+  assert.match(updates[14]?.output ?? "", /Generated starter code at/);
+  assert.match(updates[17]?.output ?? "", /Generated starter tests at/);
+  assert.match(updates[20]?.output ?? "", /Generated test execution status: skipped/);
+  assert.match(updates[23]?.output ?? "", /Created validation checklist at/);
+});
+
+test("runPipeline emits a failed update for the current stage before throwing", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "boilerbrain-pipeline-failure-"));
+  const outputDir = join(rootDir, "output-target");
+  const updates: PipelineStageUpdate[] = [];
+
+  await writeFile(outputDir, "not a directory", "utf8");
+
+  await assert.rejects(
+    () =>
+      runPipeline("build a notes API with authentication", {
+        outputDir,
+        onStageUpdate: (update) => {
+          updates.push(update);
+        },
+      }),
+  );
+
+  assert.deepEqual(collectStageSignatures(updates), [
+    ["parsePrompt", "pending"],
+    ["parsePrompt", "running"],
+    ["parsePrompt", "completed"],
+    ["generateSpec", "pending"],
+    ["generateSpec", "running"],
+    ["generateSpec", "failed"],
+  ]);
+  assert.equal(updates[5]?.status, "failed");
+  assert.equal(updates[5]?.key, "generateSpec");
+  assert.equal(updates[5]?.output, undefined);
 });
