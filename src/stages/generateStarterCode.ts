@@ -319,10 +319,10 @@ function createPackageJsonContents(spec: ProjectSpec): string {
       name: spec.projectName,
       version: "0.1.0",
       private: true,
-      main: "dist/server.js",
+      main: "dist/src/server.js",
       scripts: {
         build: "tsc --project tsconfig.json",
-        start: "node dist/server.js",
+        start: "node dist/src/server.js",
         test: "jest --runInBand",
       },
       devDependencies: {

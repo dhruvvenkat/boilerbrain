@@ -46,7 +46,9 @@ test("generateStarterCode writes runnable project files and backend source code"
   assert.ok(result.filesWritten.includes("src/app.ts"));
   assert.ok(result.filesWritten.includes("src/routes/calendars.ts"));
   assert.equal(packageJson.name, "calendar-api");
+  assert.equal(packageJson.main, "dist/src/server.js");
   assert.equal(packageJson.scripts.build, "tsc --project tsconfig.json");
+  assert.equal(packageJson.scripts.start, "node dist/src/server.js");
   assert.equal(packageJson.scripts.test, "jest --runInBand");
   assert.match(appContents, /export function createApp/);
   assert.match(appContents, /handleCalendarsRoute/);
