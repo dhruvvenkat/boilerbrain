@@ -10,19 +10,34 @@ import {
 export interface ParsedCliArgs {
   prompt: string;
   outputDir?: string;
+  plain: boolean;
   showHelp: boolean;
+}
+
+export interface BoilerbrainCliDependencies {
+  runPipeline?: typeof runPipeline;
+  runBoilerbrainTui?: (options: {
+    prompt?: string;
+    outputDir?: string;
+  }) => Promise<void>;
+  stdout?: Pick<Console, "log">;
+  stderr?: Pick<Console, "error">;
+  getCurrentWorkingDirectory?: () => string;
 }
 
 const USAGE = `Usage:
   boilerbrain "<project prompt>"
   boilerbrain --out ./generated "<project prompt>"
+  boilerbrain --plain "<project prompt>"
 
 Development:
+  npm run tui -- "<project prompt>"
   npm run pipeline -- "<project prompt>"
   npm run pipeline -- --out ./generated "<project prompt>"
 
 Options:
   -o, --out, --output-dir <path>  Directory to write the generated project into
+  --plain                         Run the legacy stage-printing CLI instead of the TUI
   -h, --help                      Show this help message
 `;
 
@@ -45,6 +60,7 @@ function readInlineOutputDir(value: string): string | undefined {
 export function parseCliArgs(argv: string[]): ParsedCliArgs {
   const promptParts: string[] = [];
   let outputDir: string | undefined;
+  let plain = false;
   let showHelp = false;
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -52,6 +68,11 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
 
     if (argument === "-h" || argument === "--help") {
       showHelp = true;
+      continue;
+    }
+
+    if (argument === "--plain") {
+      plain = true;
       continue;
     }
 
@@ -84,6 +105,7 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
   return {
     prompt: promptParts.join(" ").trim(),
     outputDir: outputDir?.trim(),
+    plain,
     showHelp,
   };
 }
@@ -96,54 +118,81 @@ export function formatStageResults(result: PipelineRunResult): string {
     .join("\n\n");
 }
 
-function printUsage(stream: Pick<typeof console, "log" | "error">, method: "log" | "error"): void {
+function printUsage(stream: Pick<Console, "log" | "error">, method: "log" | "error"): void {
   stream[method](USAGE);
 }
 
-async function main(): Promise<void> {
-  let parsedArgs: ParsedCliArgs;
-
-  try {
-    parsedArgs = parseCliArgs(process.argv.slice(2));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Invalid CLI arguments.";
-    console.error(message);
-    console.error("");
-    printUsage(console, "error");
-    process.exitCode = 1;
-    return;
+async function loadRunBoilerbrainTui(
+  dependencies: BoilerbrainCliDependencies,
+): Promise<(options: { prompt?: string; outputDir?: string }) => Promise<void>> {
+  if (dependencies.runBoilerbrainTui) {
+    return dependencies.runBoilerbrainTui;
   }
+
+  const module = await import("../src/tui/runBoilerbrainTui.ts");
+
+  if (typeof module.runBoilerbrainTui !== "function") {
+    throw new Error(
+      "The TUI module does not export runBoilerbrainTui().",
+    );
+  }
+
+  return module.runBoilerbrainTui;
+}
+
+export async function runBoilerbrainCli(
+  argv: string[] = process.argv.slice(2),
+  dependencies: BoilerbrainCliDependencies = {},
+): Promise<void> {
+  const parsedArgs = parseCliArgs(argv);
+  const stdout = dependencies.stdout ?? console;
+  const stderr = dependencies.stderr ?? console;
+  const getCurrentWorkingDirectory =
+    dependencies.getCurrentWorkingDirectory ?? cwd;
 
   if (parsedArgs.showHelp) {
-    printUsage(console, "log");
+    printUsage(stdout, "log");
     return;
   }
 
-  if (!parsedArgs.prompt) {
-    console.error("A natural-language prompt is required.");
-    console.error("");
-    printUsage(console, "error");
+  const outputDir = parsedArgs.outputDir ?? getCurrentWorkingDirectory();
+
+  if (parsedArgs.plain && !parsedArgs.prompt) {
+    stderr.error("A natural-language prompt is required for plain mode.");
+    stderr.error("");
+    printUsage(stderr, "error");
     process.exitCode = 1;
     return;
   }
 
-  const outputDir = parsedArgs.outputDir ?? cwd();
+  if (!parsedArgs.plain) {
+    const runBoilerbrainTui = await loadRunBoilerbrainTui(dependencies);
+
+    await runBoilerbrainTui({
+      prompt: parsedArgs.prompt || undefined,
+      outputDir,
+    });
+    return;
+  }
 
   try {
-    const result = await runPipeline(parsedArgs.prompt, {
+    const runPipelineImpl = dependencies.runPipeline ?? runPipeline;
+    const result = await runPipelineImpl(parsedArgs.prompt, {
       outputDir,
     });
 
-    console.log(`Prompt: ${result.prompt}`);
-    console.log(`Output directory: ${outputDir}`);
-    console.log("");
-    console.log(formatStageResults(result));
+    stdout.log(`Prompt: ${result.prompt}`);
+    stdout.log(`Output directory: ${outputDir}`);
+    stdout.log("");
+    stdout.log(formatStageResults(result));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Pipeline failed.";
 
-    console.error(message);
+    stderr.error(message);
     process.exitCode = 1;
   }
 }
 
-void main();
+if (import.meta.main) {
+  void runBoilerbrainCli();
+}
